@@ -40,21 +40,21 @@ const CsvUploader = () => {
         }
 
         try {
-          const batch = collection(db, "dengueData");
+          const batch = collection(db, "hivCases");
           const totalRows = rows.length;
 
           for (let i = 0; i < totalRows; i++) {
             const row = rows[i];
 
             // Ensure all fields are present before upload and map the correct headers
-            if (row.loc && row.cases && row.deaths && row.date && row.Region && row.year) {
+            if (row.Entity && row.Code && row.Year && row.Deaths && row.Incidence && row.Prevalence) {
               await addDoc(batch, {
-                location: row.loc, // Mapping loc to location
-                cases: Number(row.cases), // Ensure cases are numeric
-                deaths: Number(row.deaths), // Ensure deaths are numeric
-                date: row.date, // Date as is
-                regions: row.Region, // Mapping Region to regions
-                year: Number(row.year), // Year as numeric
+                entity: row.Entity, // Mapping loc to location
+                code: row.Code, // Ensure cases are numeric
+                year: Number(row.Year), // Ensure deaths are numeric
+                deaths: Number(row.Deaths), // Date as is
+                incidence: Number(row.Incidence), // Mapping Region to regions
+                prevalence: Number(row.Prevalence), // Year as numeric
               });
             } else {
               console.error("Missing required fields in row: ", row);

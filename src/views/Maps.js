@@ -1,58 +1,53 @@
 import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import ph from "../ph.json"; // Your PH GeoJSON data
+import world from "../world.json";
 import { getFirestore, collection, getDocs } from "firebase/firestore"; // Firebase imports
-import { Card,CardBody, CardTitle, Container, Row } from "reactstrap"; // For layout (if needed)
+import { Card, CardBody, CardTitle, Container, Row, Button, CardHeader, Col } from "reactstrap"; // For layout (if needed)
 
 const MapComponent = () => {
   const [geoData, setGeoData] = useState(null);
+  const [metric, setMetric] = useState("incidence"); // Default to "incidence"
 
-  // Fetch dengue data from Firestore
-  const fetchDengueData = async () => {
+  // Fetch HIV data from Firestore
+  const fetchHivCases = async () => {
     const db = getFirestore();
-    const snapshot = await getDocs(collection(db, "dengueData"));
+    const snapshot = await getDocs(collection(db, "hivCases"));
     
-    const dengueData = [];
-    snapshot.forEach((doc) => dengueData.push({ id: doc.id, ...doc.data() }));
+    const hivCases = [];
+    snapshot.forEach((doc) => hivCases.push({ id: doc.id, ...doc.data() }));
     
-    return dengueData;
+    return hivCases;
   };
 
-  // UseEffect to enrich GeoJSON with Firebase data
+  // Enrich GeoJSON data with Firebase data
   useEffect(() => {
     const enrichGeoJSON = async () => {
-      // Fetch dengue data from Firebase
-      const dengueData = await fetchDengueData();
+      const hivCases = await fetchHivCases();
 
-      // Aggregate the dengue cases by region
-      const aggregatedDengueData = dengueData.reduce((acc, data) => {
-        const regionName = data.regions?.toLowerCase(); // Ensure region name is lowercase for comparison
-        if (regionName) {
-          if (!acc[regionName]) {
-            acc[regionName] = { cases: 0, deaths: 0 };
+      const aggregatedHivCases = hivCases.reduce((acc, data) => {
+        const countryName = data.entity; // Ensure region name is lowercase for comparison
+        if (countryName) {
+          if (!acc[countryName]) {
+            acc[countryName] = { deaths: 0, incidence: 0 };
           }
-          acc[regionName].cases += data.cases || 0; // Sum up cases
-          acc[regionName].deaths += data.deaths || 0; // Sum up deaths
+          acc[countryName].incidence += data.incidence || 0;
+          acc[countryName].deaths += data.deaths || 0;
         }
         return acc;
       }, {});
 
-      // Enrich GeoJSON data with aggregated dengue data
-      const enrichedData = { ...ph };
+      const enrichedData = { ...world };
       enrichedData.features = enrichedData.features.map((feature) => {
-        const regionName = feature.properties.name.toLowerCase(); // Extract region name from GeoJSON
+        const countryName = feature.properties.ADMIN;
+        const hivInfo = aggregatedHivCases[countryName];
 
-        // Find matching aggregated data
-        const dengueInfo = aggregatedDengueData[regionName];
-
-        // Return enriched GeoJSON feature
         return {
           ...feature,
           properties: {
             ...feature.properties,
-            cases: dengueInfo ? dengueInfo.cases : 0,
-            deaths: dengueInfo ? dengueInfo.deaths : 0,
+            incidence: hivInfo ? hivInfo.incidence : 0,
+            deaths: hivInfo ? hivInfo.deaths : 0,
           },
         };
       });
@@ -63,37 +58,43 @@ const MapComponent = () => {
     enrichGeoJSON();
   }, []);
 
-  // Function to determine color based on number of cases
-  const getColor = (density) => {
-    return density > 200000
-      ? "#2C003E"  // Purple (Extreme)
-      : density > 100000
-      ? "#800026"  // Dark Red (Very High)
-      : density > 50000
-      ? "#FF0000"  // Bright Red (High)
-      : density > 10000
-      ? "#FFA500"  // Orange (Moderate)
-      : density > 5000
-      ? "#FFFF00"  // Yellow (Low)
-      : density > 1000
-      ? "#00FF00"  // Green (Very Low)
-      : density > 100
-      ? "#00FFFF"  // Cyan (Minimal)
-      : density > 10
-      ? "#0000FF"  // Blue (Barely Any)
-      : "#FFFFFF"; // White (No data)
-};
+  // Get color based on selected metric
+  const getColor = (value) => {
+    return value > 200000
+      ? "#2C003E"
+      : value > 100000
+      ? "#800026"
+      : value > 50000
+      ? "#FF0000"
+      : value > 10000
+      ? "#FFA500"
+      : value > 5000
+      ? "#FFFF00"
+      : value > 1000
+      ? "#00FF00"
+      : value > 100
+      ? "#00FFFF"
+      : value > 10
+      ? "#0000FF"
+      : "#FFFFFF";
+  };
 
-  // Style for GeoJSON polygons based on the cases
+  // Style based on the selected metric (incidence or deaths)
   const style = (feature) => {
+    const value = feature.properties[metric]; // Get value based on selected metric
     return {
-      fillColor: getColor(feature.properties.cases),
+      fillColor: getColor(value),
       weight: 2,
       opacity: 1,
       color: "white",
       dashArray: "3",
       fillOpacity: 0.7,
     };
+  };
+
+  // Handler to switch between incidence and deaths
+  const toggleMetric = () => {
+    setMetric((prevMetric) => (prevMetric === "incidence" ? "deaths" : "incidence"));
   };
 
   return (
@@ -103,13 +104,27 @@ const MapComponent = () => {
         <Container className="mt--7" fluid>
           <Row>
             <div className="col">
-              <Card
-                className="shadow border-0"
-                style={{ marginTop: "40px" }}
-              >
+              <Card className="shadow border-0" style={{ marginTop: "40px" }}>
+                <CardHeader className="border-0">
+                  <Row>
+                    <Col>
+                      <h2 className="mb-10">HIV Heatmap</h2>
+                    </Col>
+                    <Col className="text-right">
+                      <Button
+                        size='lg'
+                        onClick={toggleMetric}
+                        color="info"
+                        style={{ marginBottom: "0 px" }}
+                      >
+                        Toggle Metric: {metric === "incidence" ? "Incidence" : "Deaths"}
+ </Button>
+                    </Col>
+                  </Row>
+                </CardHeader>
                 <MapContainer
-                  center={[12.8797, 121.774]}
-                  zoom={6}
+                  center={[20, 0]}
+                  zoom={2}
                   style={{ height: "600px", width: "100%", borderRadius: "5px" }}
                 >
                   <TileLayer
@@ -117,58 +132,81 @@ const MapComponent = () => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
                   {geoData && <GeoJSON data={geoData} style={style} />}
-                  
                 </MapContainer>
               </Card>
-
-             {/* Legend Card */}
-
-            <Card className="shadow mt-4" style={{ borderRadius: '15px', width: '300px' }}>
-              <CardBody>
-                <CardTitle tag="h5" className="mb-3">Dengue Cases Color Legend</CardTitle>
-                <div className="info legend" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#2C003E', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    200,000+ Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#800026', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    100,000 - 199,999 Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#FF0000', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    50,000 - 99,999 Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#FFA500', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    10,000 - 49,999 Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#FFFF00', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    5,000 - 9,999 Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#00FF00', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    1,000 - 4,999 Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#00FFFF', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    100 - 999 Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#0000FF', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
-                    10 - 99 Cases
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <i style={{ backgroundColor: '#FFFFFF', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px', border: '1px solid black' }}></i>
-                    0 - 9 Cases
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-
-
             </div>
+          </Row>
+          <Row>
+            
+
+            {/* Legend Card */}
+            <Col className="mb-5 mb-xl-0" xl="3" style={{ marginTop: '20px' }}>
+              <Card className="shadow mt-4" style={{ borderRadius: '7px' }}>
+                <CardBody>
+                  <CardTitle tag="h5" className="mb-3">HIV Cases Color Legend</CardTitle>
+                  <div className="info legend" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#2C003E', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      200,000+ Cases
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#800026', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      100,000 - 199,999 Cases
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#FF0000', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      50,000 - 99,999 Cases
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#FFA500', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      10,000 - 49,999 Cases
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#FFFF00', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      5,000 - 9,999 Cases
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#00FF00', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      1,000 - 4,999 Cases
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#00FFFF', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      100 - 999 Cases
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#0000FF', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px' }}></i>
+                      10 - 99 Cases
+                    </div>
+                    <div style={{ display : 'flex', alignItems: 'center' }}>
+                      <i style={{ backgroundColor: '#FFFFFF', width: '30px', height: '30px', borderRadius: '5px', marginRight: '10px', border: '1px solid black' }}></i>
+                      0 - 9 Cases
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </Col>
+
+            {/* Purpose/Explanation Card */}
+            <Col lg="6" xl="9" className="mb-4" style={{ marginTop: '45px' }}>
+              <Card className="card-stats mb-4 mb-xl-0">
+                <CardBody>
+                  <Row>
+                    <div className="col">
+                      <h5 className="text-uppercase text-muted mb-0">Information</h5>
+                      <p className="h2 font-weight-bold mb-0">
+                      the heatmap combines temporal and spatial dimensions, showing how Deaths or Incidence vary across countries and years. 
+                      The color intensity emphasizes variations, making it ideal for spotting regional or temporal peaks in the data.
+                      </p>
+                    </div>
+                    <Col className="col-auto">
+                      <div className="icon icon-shape bg-info text-white rounded-circle shadow">
+                        <i className="fas fa-cloud" />
+                      </div>
+                    </Col>
+                  </Row>
+                </CardBody>
+              </Card>
+            </Col>
           </Row>
         </Container>
       </div>

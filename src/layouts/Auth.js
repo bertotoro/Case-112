@@ -1,8 +1,7 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, Route, Routes, Navigate } from "react-router-dom";
 // reactstrap components
 import { Container, Row, Col, Card, CardBody } from "reactstrap";
-import VideoSource from '../assets/img/brand/HIVID.mp4'
 
 // core components
 import AuthNavbar from "components/Navbars/AuthNavbar.js";
@@ -11,17 +10,24 @@ import AuthFooter from "components/Footers/AuthFooter.js";
 import routes from "routes.js";
 
 const Auth = (props) => {
-  const mainContent = React.useRef(null);
+  const mainContent = useRef(null);
   const location = useLocation();
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
 
-  React.useEffect(() => {
+  const videoSources = [
+    require("../assets/img/brand/HIVID.mp4"),
+    require("../assets/img/brand/HIVID2.mp4"),
+    require("../assets/img/brand/HIVID3.mp4"),
+  ];
+
+  useEffect(() => {
     document.body.classList.add("bg-default");
     return () => {
       document.body.classList.remove("bg-default");
     };
   }, []);
-  
-  React.useEffect(() => {
+
+  useEffect(() => {
     document.documentElement.scrollTop = 0;
     document.scrollingElement.scrollTop = 0;
     mainContent.current.scrollTop = 0;
@@ -37,6 +43,11 @@ const Auth = (props) => {
         return null;
       }
     });
+  };
+
+  const handleVideoEnded = () => {
+    // Move to the next video or loop back to the first
+    setCurrentVideoIndex((prevIndex) => (prevIndex + 1) % videoSources.length);
   };
 
   return (
@@ -77,9 +88,10 @@ const Auth = (props) => {
 
           {/* Video Background */}
           <video
+            key={currentVideoIndex} // Use currentVideoIndex as a key to force re-render
             autoPlay
-            loop
-            muted
+            
+            onEnded={handleVideoEnded} // Call this function when the video ends
             style={{
               position: "absolute",
               top: 0,
@@ -91,14 +103,12 @@ const Auth = (props) => {
             }}
           >
             <source
-              src={VideoSource} // Replace with your video file path
+              src={videoSources[currentVideoIndex]} // Use the current video index
               type="video/mp4"
             />
             Your browser does not support the video tag.
           </video>
         </div>
-
-        
       </div>
       <AuthFooter />
     </>

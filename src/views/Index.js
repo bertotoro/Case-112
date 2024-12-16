@@ -1,338 +1,298 @@
-/*!
-
-=========================================================
-* Argon Dashboard React - v1.2.4
-=========================================================
-
-* Product Page: https://www.creative-tim.com/product/argon-dashboard-react
-* Copyright 2024 Creative Tim (https://www.creative-tim.com)
-* Licensed under MIT (https://github.com/creativetimofficial/argon-dashboard-react/blob/master/LICENSE.md)
-
-* Coded by Creative Tim
-
-=========================================================
-
-* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-*/
-import { useState } from "react";
-// node.js library that concatenates classes (strings)
-import classnames from "classnames";
-// javascipt plugin for creating charts
-import Chart from "chart.js";
-// react plugin used to create charts
-import { Line, Bar } from "react-chartjs-2";
-// reactstrap components
+import React, { useState, useEffect } from "react";
+import { collection, getDocs, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 import {
   Button,
   Card,
   CardHeader,
   CardBody,
-  NavItem,
-  NavLink,
-  Nav,
-  Progress,
   Table,
   Container,
   Row,
   Col,
-} from "reactstrap";
+  Input,
+} from "reactstrap"
+import Header from "components/Headers/Header.js";;
 
-// core components
-import {
-  chartOptions,
-  parseOptions,
-  chartExample1,
-  chartExample2,
-} from "variables/charts.js";
+const HivDataList = () => {
+  const [hivCases, setHivCases] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    entity: "",
+    code: "",
+    year: "",
+    deaths: "",
+    incidence: "",
+  });
+  const [previousForm, setPreviousForm] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-import Header from "components/Headers/Header.js";
+  // Fetch data from Firestore
+  useEffect(() => {
+    const fetchData = async () => {
+      const hivCollection = collection(db, "hivCases");
+      const hivSnapshot = await getDocs(hivCollection);
+      const dataList = hivSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setHivCases(dataList);
+    };
 
-const Index = (props) => {
-  const [activeNav, setActiveNav] = useState(1);
-  const [chartExample1Data, setChartExample1Data] = useState("data1");
+    fetchData();
+  }, []);
 
-  if (window.Chart) {
-    parseOptions(Chart, chartOptions());
-  }
-
-  const toggleNavs = (e, index) => {
-    e.preventDefault();
-    setActiveNav(index);
-    setChartExample1Data("data" + index);
+  // Delete data
+  const handleDelete = async (id) => {
+    const hivDocRef = doc(db, "hivCases", id);
+    try {
+      await deleteDoc(hivDocRef);
+      setHivCases(hivCases.filter((data) => data.id !== id));
+      alert("Data deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting document: ", error);
+    }
   };
+
+  // Edit data
+  const handleEdit = (data) => {
+    setEditingId(data.id);
+    setPreviousForm({ ...data });
+    setEditForm({
+      entity: data.entity,
+      code: data.code,
+      year: data.year,
+      deaths: data.deaths,
+      incidence: data.incidence,
+    });
+  };
+
+  // Update data
+  const handleUpdate = async () => {
+    const hivDocRef = doc(db, "hivCases", editingId);
+    try {
+      await updateDoc(hivDocRef, { ...editForm });
+      setHivCases(hivCases.map((data) =>
+        data.id === editingId ? { id: editingId, ...editForm } : data
+      ));
+      setEditingId(null);
+      alert("Data updated successfully!");
+    } catch (error) {
+      console.error("Error updating document: ", error);
+    }
+  };
+
+  // Cancel editing
+  const handleCancel = () => {
+    setEditForm(previousForm);
+    setEditingId(null);
+  };
+
+  // Handle input change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prevForm) => ({ ...prevForm, [name]: value }));
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // Filtered data based on search query
+  const filteredData = hivCases.filter((data) =>
+    data.entity.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    data.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    data.year.toString().includes(searchQuery) ||
+    data.deaths.toString().includes(searchQuery) ||
+    data.incidence.toString().includes(searchQuery)
+  );
+
+  // Sorting logic
+  const [sortConfig, setSortConfig] = useState({ key: 'year', direction: "ascending" });
+
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === "ascending" ? -1 : 1;
+    }
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === "ascending" ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const requestSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
   return (
     <>
-      <Header />
-      {/* Page content */}
-      <Container className="mt--7" fluid>
-        <Row>
-          <Col className="mb-5 mb-xl-0" xl="8">
-            <Card className="bg-gradient-default shadow">
-              <CardHeader className="bg-transparent">
-                <Row className="align-items-center">
-                  <div className="col">
-                    <h6 className="text-uppercase text-light ls-1 mb-1">
-                      Overview
-                    </h6>
-                    <h2 className="text-white mb-0">Sales value</h2>
-                  </div>
-                  <div className="col">
-                    <Nav className="justify-content-end" pills>
-                      <NavItem>
-                        <NavLink
-                          className={classnames("py-2 px-3", {
-                            active: activeNav === 1,
-                          })}
-                          href="#pablo"
-                          onClick={(e) => toggleNavs(e, 1)}
-                        >
-                          <span className="d-none d-md-block">Month</span>
-                          <span className="d-md-none">M</span>
-                        </NavLink>
-                      </NavItem>
-                      <NavItem>
-                        <NavLink
-                          className={classnames("py-2 px-3", {
-                            active: activeNav === 2,
-                          })}
-                          data-toggle="tab"
-                          href="#pablo"
-                          onClick={(e) => toggleNavs(e, 2)}
-                        >
-                          <span className="d-none d-md-block">Week</span>
-                          <span className="d-md-none">W</span>
-                        </NavLink>
-                      </NavItem>
-                    </Nav>
-                  </div>
-                </Row>
-              </CardHeader>
-              <CardBody>
-                {/* Chart */}
-                <div className="chart">
-                  <Line
-                    data={chartExample1[chartExample1Data]}
-                    options={chartExample1.options}
-                    getDatasetAtEvent={(e) => console.log(e)}
+      <div className="header bg-gradient-default">
+        <Header />
+        {/* Page content */}
+        <Container className="mt--7" fluid>
+          <Row className="mt-5">
+            <Col xl="11">
+              <Card className="shadow" style={{ marginBottom: "40px" }}>
+                <CardHeader className="border-0">
+                  <h3 className="mb-0">HIV Data List</h3>
+                  <Input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    style={{ marginLeft: '80%',marginTop: '10px', width: "20%" }}
                   />
-                </div>
-              </CardBody>
-            </Card>
-          </Col>
-          <Col xl="4">
-            <Card className="shadow">
-              <CardHeader className="bg-transparent">
-                <Row className="align-items-center">
-                  <div className="col">
-                    <h6 className="text-uppercase text-muted ls-1 mb-1">
-                      Performance
-                    </h6>
-                    <h2 className="mb-0">Total orders</h2>
+                </CardHeader>
+                <CardBody>
+                  <Table className="align-items-center table-flush" responsive>
+                    <thead className="thead-light">
+                      <tr>
+                        <th scope="col">#</th>
+                        <th scope="col" onClick={() => requestSort('entity')}>
+                          Entity
+                          {sortConfig.key === 'entity' && (
+                            <i className={`ni ${sortConfig.direction === 'ascending' ? 'ni-bold-up' : 'ni-bold-down'}`}></i>
+                          )}
+                        </th>
+                        <th scope="col" onClick={() => requestSort('code')}>
+                          Code
+                          {sortConfig.key === 'code' && (
+                            <i className={`ni ${sortConfig.direction === 'ascending' ? 'ni-bold-up' : 'ni-bold-down'}`}></i>
+                          )}
+                        </th>
+                        <th scope="col" onClick={() => requestSort('year')}>
+                          Year
+                          {sortConfig.key === 'year' && (
+                            <i className={`ni ${sortConfig.direction === 'ascending' ? 'ni-bold-up' : 'ni-bold-down'}`}></i>
+                          )}
+                        </th>
+                        <th scope="col" onClick={() => requestSort('deaths')}>
+                          Deaths
+                          {sortConfig.key === 'deaths' && (
+                            <i className={`ni ${sortConfig.direction === 'ascending' ? 'ni-bold-up' : 'ni-bold-down'}`}></i>
+                          )}
+                        </th>
+                        <th scope="col" onClick={() => requestSort('incidence')}>
+                          Incidence
+                          {sortConfig.key === 'incidence' && (
+                            <i className={`ni ${sortConfig.direction === 'ascending' ? 'ni-bold-up' : 'ni-bold-down'}`}></i>
+                          )}
+                        </th>
+                        <th scope="col">Actions</th>
+                      </tr>
+                    </thead>
+                  </Table>
+
+                  {/* Scrollable Body */}
+                  <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    <Table className="align-items-center table-flush" responsive>
+                      <tbody>
+                        {sortedData.map((data, index) => (
+                          <tr key={data.id}>
+                            <td style={{ width: '9%' }}>{index + 1}</td>
+                            <td style={{ width: '0%', padding: '0.375rem 0.75rem' }}>
+                              {editingId === data.id ? (
+                                <input
+                                  type="text"
+                                  name="entity"
+                                  value={editForm.entity}
+                                  onChange={handleChange}
+                                  required
+                                />
+                              ) : (
+                                <span onDoubleClick={() => handleEdit(data)}>{data.entity}</span>
+                              )}
+                            </td>
+                            <td>
+                              {editingId === data.id ? (
+                                <input
+                                  type="text"
+                                  name="code"
+                                  value={editForm.code}
+                                  onChange={handleChange}
+                                  required
+                                />
+                              ) : (
+                                <span onDoubleClick={() => handleEdit(data)}>{data.code}</span>
+                              )}
+                            </td>
+                            <td>
+                              {editingId === data.id ? (
+                                <input
+                                  type="number"
+                                  name="year"
+                                  value={editForm.year}
+                                  onChange={handleChange}
+                                  required
+                                />
+                              ) : (
+                                <span onDoubleClick={() => handleEdit(data)}>{data.year}</span>
+                              )}
+                            </td>
+                            <td>
+                              {editingId === data.id ? (
+                                <input
+                                  type="number"
+                                  name="deaths"
+                                  value={editForm.deaths}
+                                  onChange={handleChange}
+                                  required
+                                />
+                              ) : (
+                                <span onDoubleClick={() => handleEdit(data)}>{data.deaths}</span>
+                              )}
+                            </td>
+                            <td>
+                              {editingId === data.id ? (
+                                <input
+                                  type="number"
+                                  name="incidence"
+                                  value={editForm.incidence}
+                                  onChange={handleChange}
+                                  required
+                                />
+                              ) : (
+                                <span onDoubleClick={() => handleEdit(data)}>{data.incidence}</span>
+                              )}
+                            </td>
+                            <td>
+                              {editingId === data.id ? (
+                                <>
+                                  <Button color="success" onClick={handleUpdate} size="sm">Save</Button>
+                                  <Button color="danger" onClick={handleCancel} size="sm">Cancel</Button>
+                                </>
+                              ) : (
+                                <Button
+                                  color="danger"
+                                  href="#pablo"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleDelete(data.id);
+                                  }}
+                                  size="sm"
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
                   </div>
-                </Row>
-              </CardHeader>
-              <CardBody>
-                {/* Chart */}
-                <div className="chart">
-                  <Bar
-                    data={chartExample2.data}
-                    options={chartExample2.options}
-                  />
-                </div>
-              </CardBody>
-            </Card>
-          </Col>
-        </Row>
-        <Row className="mt-5">
-          <Col className="mb-5 mb-xl-0" xl="8">
-            <Card className="shadow">
-              <CardHeader className="border-0">
-                <Row className="align-items-center">
-                  <div className="col">
-                    <h3 className="mb-0">Page visits</h3>
-                  </div>
-                  <div className="col text-right">
-                    <Button
-                      color="primary"
-                      href="#pablo"
-                      onClick={(e) => e.preventDefault()}
-                      size="sm"
-                    >
-                      See all
-                    </Button>
-                  </div>
-                </Row>
-              </CardHeader>
-              <Table className="align-items-center table-flush" responsive>
-                <thead className="thead-light">
-                  <tr>
-                    <th scope="col">Page name</th>
-                    <th scope="col">Visitors</th>
-                    <th scope="col">Unique users</th>
-                    <th scope="col">Bounce rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row">/argon/</th>
-                    <td>4,569</td>
-                    <td>340</td>
-                    <td>
-                      <i className="fas fa-arrow-up text-success mr-3" /> 46,53%
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">/argon/index.html</th>
-                    <td>3,985</td>
-                    <td>319</td>
-                    <td>
-                      <i className="fas fa-arrow-down text-warning mr-3" />{" "}
-                      46,53%
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">/argon/charts.html</th>
-                    <td>3,513</td>
-                    <td>294</td>
-                    <td>
-                      <i className="fas fa-arrow-down text-warning mr-3" />{" "}
-                      36,49%
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">/argon/tables.html</th>
-                    <td>2,050</td>
-                    <td>147</td>
-                    <td>
-                      <i className="fas fa-arrow-up text-success mr-3" /> 50,87%
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">/argon/profile.html</th>
-                    <td>1,795</td>
-                    <td>190</td>
-                    <td>
-                      <i className="fas fa-arrow-down text-danger mr-3" />{" "}
-                      46,53%
-                    </td>
-                  </tr>
-                </tbody>
-              </Table>
-            </Card>
-          </Col>
-          <Col xl="4">
-            <Card className="shadow">
-              <CardHeader className="border-0">
-                <Row className="align-items-center">
-                  <div className="col">
-                    <h3 className="mb-0">Social traffic</h3>
-                  </div>
-                  <div className="col text-right">
-                    <Button
-                      color="primary"
-                      href="#pablo"
-                      onClick={(e) => e.preventDefault()}
-                      size="sm"
-                    >
-                      See all
-                    </Button>
-                  </div>
-                </Row>
-              </CardHeader>
-              <Table className="align-items-center table-flush" responsive>
-                <thead className="thead-light">
-                  <tr>
-                    <th scope="col">Referral</th>
-                    <th scope="col">Visitors</th>
-                    <th scope="col" />
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row">Facebook</th>
-                    <td>1,480</td>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        <span className="mr-2">60%</span>
-                        <div>
-                          <Progress
-                            max="100"
-                            value="60"
-                            barClassName="bg-gradient-danger"
-                          />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Facebook</th>
-                    <td>5,480</td>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        <span className="mr-2">70%</span>
-                        <div>
-                          <Progress
-                            max="100"
-                            value="70"
-                            barClassName="bg-gradient-success"
-                          />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Google</th>
-                    <td>4,807</td>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        <span className="mr-2">80%</span>
-                        <div>
-                          <Progress max="100" value="80" />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">Instagram</th>
-                    <td>3,678</td>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        <span className="mr-2">75%</span>
-                        <div>
-                          <Progress
-                            max="100"
-                            value="75"
-                            barClassName="bg-gradient-info"
-                          />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row">twitter</th>
-                    <td>2,645</td>
-                    <td>
-                      <div className="d-flex align-items-center">
-                        <span className="mr-2">30%</span>
-                        <div>
-                          <Progress
-                            max="100"
-                            value="30"
-                            barClassName="bg-gradient-warning"
-                          />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </Table>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
+                </CardBody>
+              </Card>
+            </Col>
+          </Row>
+        </Container>
+      </div>
     </>
   );
 };
 
-export default Index;
+export default HivDataList;
