@@ -15,7 +15,7 @@ import {
   Col,
 } from "reactstrap";
 
-const Register = () => {
+const LandingPage = () => {
   return (
     <>
       <Col lg="6" md="8">
@@ -145,4 +145,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default LandingPage;

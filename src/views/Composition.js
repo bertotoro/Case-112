@@ -115,9 +115,9 @@ const HivDataList = () => {
                     </Col>
                   </Row>
 
-                  <Button color="primary" onClick={clearSearch} style={{ marginTop: '10px', marginLeft: '10px' }}>
+                 {/* <Button color="primary" onClick={clearSearch} style={{ marginTop: '10px', marginLeft: '10px' }}>
                     Clear Search
-                  </Button>
+                  </Button>*/}
                   <Button 
                     color="info" 
                     onClick={() => setShowGraphs(!showGraphs)} 

@@ -50,7 +50,7 @@ const Admin = (props) => {
         {...props}
         routes={routes}
         logo={{
-          innerLink: "/auth/register",
+          innerLink: "/auth/LandingPage",
           imgSrc: require("../assets/img/brand/HIVpic.png"),
           imgAlt: "...",
         }}

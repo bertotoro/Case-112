@@ -29,7 +29,7 @@ const AdminNavbar = () => {
           backgroundColor: "rgba(0, 0, 0, 0.2)", // Semi-transparent black background
         }}>
         <Container className="px-4">
-          <NavbarBrand  to="/" tag={Link}>
+          <NavbarBrand  to="/admin/index" tag={Link}>
             <img
               alt="..."
               src={require("../../assets/img/brand/HIVpic.png")}
@@ -59,7 +59,7 @@ const AdminNavbar = () => {
             </div>
             <Nav className="ml-auto" navbar>
               <NavItem>
-                <NavLink className="nav-link-icon" to="/" tag={Link}>
+                <NavLink className="nav-link-icon" to="/admin/index" tag={Link}>
                   <i className="ni ni-planet" />
                   <span className="nav-link-inner--text">Dashboard</span>
                 </NavLink>

@@ -1,4 +1,4 @@
-name: Hiv Visualization
+name: Hiv-Visualization
 region: us-east-1
 frontend:
   # Specifies the path of your code.
